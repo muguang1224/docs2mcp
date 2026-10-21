@@ -6,11 +6,13 @@
 
 Point an agent at your docs — no API key, no vector database, no Python, no `npm install`.
 
-[![npm](https://img.shields.io/npm/v/docs2mcp?color=blue)](https://www.npmjs.com/package/docs2mcp)
 [![node](https://img.shields.io/badge/node-%3E%3D18.17-brightgreen)](https://nodejs.org)
 [![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#design-notes)
 [![license](https://img.shields.io/github/license/muguang1224/docs2mcp?color=blue)](./LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-compatible-8a2be2)](https://modelcontextprotocol.io)
+
+**Not on npm yet** — install from source, see [Quickstart](#quickstart). The `npx` form below is
+what it will look like once published; the code is identical either way.
 
 <!--
   TODO: record a 20-30s GIF and drop it here. This single asset is worth more
@@ -79,12 +81,19 @@ Documentation is where coding agents are weakest. Models hallucinate API signatu
 Requires Node 18.17+. Nothing else.
 
 ```bash
-# 1. crawl and generate
+# from source (works today)
+git clone https://github.com/muguang1224/docs2mcp
+node docs2mcp/bin/docs2mcp.js https://docs.example.com
+
+# once the package is on npm
 npx docs2mcp https://docs.example.com
 
-# 2. run it (it speaks MCP over stdio)
+# then run the generated server — it speaks MCP over stdio
 node example-mcp/server.mjs
 ```
+
+> Not on npm yet: publishing is blocked on npm's granular-token policy for this account.
+> The from-source command above is the same code and runs identically.
 
 ### Claude Desktop
 
