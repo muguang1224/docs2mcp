@@ -1,0 +1,48 @@
+{
+  "name": "docs2mcp",
+  "version": "0.1.0",
+  "description": "Turn any documentation site into a ready-to-use MCP server. One command, zero config, zero dependencies.",
+  "type": "module",
+  "bin": {
+    "docs2mcp": "bin/docs2mcp.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node test/extract.test.js && node test/e2e.test.js",
+    "start": "node bin/docs2mcp.js",
+    "fixture": "node test/fixture-server.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "documentation",
+    "docs",
+    "rag",
+    "llm",
+    "ai",
+    "claude",
+    "cursor",
+    "crawler",
+    "scraper",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/muguang1224/docs2mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/muguang1224/docs2mcp/issues"
+  },
+  "homepage": "https://github.com/muguang1224/docs2mcp#readme",
+  "author": "muguang1224",
+  "license": "MIT"
+}

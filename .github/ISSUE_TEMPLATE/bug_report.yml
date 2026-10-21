@@ -1,0 +1,73 @@
+name: Bug report
+description: Something crawled wrong, extracted wrong, or the generated server misbehaves.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. The fastest path to a fix is a **specific page and a specific symptom**.
+        Please don't paste anything from private documentation.
+
+  - type: input
+    id: site
+    attributes:
+      label: Which site did you crawl?
+      description: The URL, or "the bundled fixture" if you reproduced it with `npm run fixture`.
+      placeholder: https://docs.example.com/api
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command
+      render: shell
+      placeholder: npx docs2mcp https://docs.example.com --max-pages 50 -o ./out
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which stage failed?
+      options:
+        - Crawl (wrong pages found, or pages missing)
+        - Extract (page text/code/tables mangled)
+        - Index (search can't find something it should)
+        - Generated server (MCP client can't connect or call tools)
+        - CLI (options, output directory, error handling)
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      placeholder: |
+        Expected: the code block in the "Retry" section keeps its language tag
+        Actual: it comes out as a plain indented block
+    validations:
+      required: true
+
+  - type: textarea
+    id: html
+    attributes:
+      label: Minimal HTML that reproduces it (for extraction bugs)
+      description: A trimmed `<main>` block is usually enough. A failing test case is even better.
+      render: html
+
+  - type: input
+    id: node
+    attributes:
+      label: Node version
+      placeholder: v22.11.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: macOS 15 / Windows 11 / Ubuntu 24.04
+    validations:
+      required: true

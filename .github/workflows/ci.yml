@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node: ['18', '20', '22']
+        include:
+          - os: windows-latest
+            node: '22'
+          - os: macos-latest
+            node: '22'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Verify there are no dependencies to install
+        shell: bash
+        run: |
+          if node -e "const p=require('./package.json');process.exit((p.dependencies&&Object.keys(p.dependencies).length)?1:0)"; then
+            echo "ok: package.json declares no runtime dependencies"
+          else
+            echo "::error::this project must stay dependency-free"
+            exit 1
+          fi
+
+      - name: Test
+        run: npm test
+
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          node bin/docs2mcp.js --version
+          node bin/docs2mcp.js --help > /dev/null

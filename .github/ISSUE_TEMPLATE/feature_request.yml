@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a capability. Please keep the zero-dependency rule in mind.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, not the solution. "I crawl our internal wiki and need auth" beats "add --token".
+      placeholder: Our docs sit behind a company login, so the crawler gets a login page for every URL.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      description: The project has two hard rules. Check the box if your request is compatible.
+      options:
+        - label: It does not add a runtime dependency (or I've explained why it must)
+        - label: It keeps `node server.mjs` working with no `npm install`
+        - label: It does not require a hosted service or an API key to be useful
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What are you doing instead right now?
+      description: This tells us how much the gap actually hurts.
