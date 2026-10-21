@@ -24,33 +24,33 @@ Point an agent at your docs — no API key, no vector database, no Python, no `n
 </div>
 
 ```console
-$ npx docs2mcp https://docs.stripe.com
+$ npx docs2mcp https://fastapi.tiangolo.com/
 
 docs2mcp v0.1.0
-→ https://docs.stripe.com
+→ https://fastapi.tiangolo.com/
 
-strategy  sitemap (412 urls)   scope  /docs/
+strategy  sitemap (120 urls)   scope  /
 
-✓ [  1/412]   318ms  https://docs.stripe.com/get-started
-✓ [  2/412]   402ms  https://docs.stripe.com/webhooks
-✓ [  3/412]   377ms  https://docs.stripe.com/api
+✓ [  1/120]  375ms  https://fastapi.tiangolo.com/
+✓ [  2/120]  562ms  https://fastapi.tiangolo.com/features
+✓ [  3/120]  934ms  https://fastapi.tiangolo.com/learn
   …
-✓ crawled 412 pages (via sitemap, 38.4s)
-✓ indexed 412 pages → 3,184 passages (6.2MB)
+✓ crawled 120 pages (via sitemap, 9.8s)
+✓ indexed 120 pages → 2230 passages (1.7MB)
 
-✓ wrote ./stripe-mcp
+✓ wrote ./fastapi-mcp
     server.mjs     2.2KB
     runtime.mjs    10.6KB
-    index.json     6.2MB
-    mcp.json       212B
+    index.json     3.8MB
+    mcp.json       209B
 
 Add to your MCP client:
 
   {
     "mcpServers": {
-      "stripe": {
+      "fastapi": {
         "command": "node",
-        "args": ["/abs/path/stripe-mcp/server.mjs"]
+        "args": ["/abs/path/fastapi-mcp/server.mjs"]
       }
     }
   }
@@ -59,6 +59,8 @@ Then ask your agent: "search the docs for …"
 ```
 
 That's it. Your agent now has grounded, citation-bearing access to the docs.
+
+> Those numbers are real: 120 pages of the FastAPI docs, 9.8s, on a laptop.
 
 ---
 
@@ -190,6 +192,20 @@ npx docs2mcp https://example.dev/docs --max-depth 2 --max-pages 50
 - **CJK aware.** Latin text is tokenized by word, Chinese/Japanese/Korean by character *and* bigram — so `签名验证` matches `验证 webhook 签名` without spaces. Most naive setups silently fail at this.
 - **The index is yours.** `index.json` is readable JSON. Diff it between releases, commit it, gate it in CI, serve it from a CDN.
 
+### Tested against
+
+Real crawls, not fixtures:
+
+| Site | Generator | Result |
+|---|---|---|
+| `fastapi.tiangolo.com` | MkDocs Material | 120 pages via sitemap, 9.8s, 0 chrome leaks |
+| `docs.astro.build` | Starlight | 120 pages via links, 8.8s, fences balanced |
+| `vitejs.dev/guide` | VitePress | 24 pages via links, 6.8s, 0 chrome leaks |
+
+Each of those exposed a trap that is now a regression test: MkDocs puts its sidebar *and* its
+right-hand TOC **inside** `<main>`, Shiki moves the language class onto a wrapper `<div>` and
+renders a visible `lang` label, and MkDocs appends a `¶` permalink anchor to every heading.
+
 ---
 
 ## Limitations
@@ -220,7 +236,7 @@ No. It fetches the site you point it at, writes JSON to disk, and serves it loca
 Yes, and it's a good idea for internal docs: the index becomes a reviewed, diffable artifact, and the server needs no network to run.
 
 **How big is the index?**
-Roughly 2–6 MB per 100 pages of prose for typical docs. The 412-page example above is 6.2 MB.
+Roughly 3 MB per 120 pages of prose for typical docs — the FastAPI example above produces a 3.8 MB `index.json` from 1.7 MB of text.
 
 **Does it work with Chinese / Japanese docs?**
 Yes — CJK is tokenized into characters and bigrams, so space-free queries match. There's a test for it.

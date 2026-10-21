@@ -18,7 +18,8 @@
   "scripts": {
     "test": "node test/extract.test.js && node test/e2e.test.js",
     "start": "node bin/docs2mcp.js",
-    "fixture": "node test/fixture-server.js"
+    "fixture": "node test/fixture-server.js",
+    "inspect": "node scripts/inspect.mjs"
   },
   "keywords": [
     "mcp",

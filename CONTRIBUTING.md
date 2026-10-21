@@ -21,6 +21,7 @@ No install step. There is nothing to install.
 |---|---|
 | `npm test` | Extraction unit tests + full end-to-end crawl and MCP protocol suite |
 | `npm run fixture` | Serves a fake docs site on `http://127.0.0.1:8787` |
+| `npm run inspect -- out/<dir>/index.json` | Extraction quality report: chrome leaks, fence balance, leftover tags |
 | `node bin/docs2mcp.js <url>` | Run the CLI from source |
 
 The end-to-end test makes no network calls: it starts a local fixture site, crawls it, generates a server, and drives its JSON-RPC methods in-process.

@@ -50,6 +50,83 @@ test('extractPage keeps Chinese text and strips tags', () => {
   assert.match(markdown, /`npm install`/);
 });
 
+test('extractPage ignores MkDocs sidebars that live inside <main>', () => {
+  // MkDocs Material wraps the left nav and the right TOC inside <main>, so a
+  // naive "first <main> wins" rule starts the page with 40 sidebar links.
+  const prose = `
+    <h1>FastAPI features</h1>
+    <p>FastAPI is a modern, fast web framework for building APIs with Python
+    based on standard Python type hints. It gives you automatic interactive
+    documentation, data validation, serialization, and dependency injection.</p>
+    <p>Key features include very high performance, fast to code, fewer bugs,
+    easy to learn, short, robust, and standards-based.</p>`;
+
+  const html = `<html><body>
+    <div class="md-container">
+      <main class="md-main">
+        <div class="md-sidebar md-sidebar--primary">
+          <nav><a href="/">Home</a><a href="/features/">Features</a></nav>
+        </div>
+        <div class="md-content">
+          <article class="md-content__inner md-typeset">${prose}</article>
+        </div>
+        <div class="md-sidebar md-sidebar--secondary">
+          <nav><a href="#a">On this page</a><a href="#b">Based on open standards</a></nav>
+        </div>
+      </main>
+    </div>
+    <footer>FooterJunk</footer>
+  </body></html>`;
+
+  const { markdown } = extractPage(html, 'https://fastapi.tiangolo.com/features/');
+
+  assert.match(markdown, /FastAPI is a modern, fast web framework/);
+  assert.doesNotMatch(markdown, /On this page/, 'the right-hand TOC must not leak');
+  assert.doesNotMatch(markdown, /FooterJunk/);
+  assert.ok(
+    markdown.indexOf('FastAPI is a modern') < 40,
+    `prose should start the page, got: ${JSON.stringify(markdown.slice(0, 80))}`,
+  );
+});
+
+test('extractPage recovers the language of a code block wrapped by a shiki-style div', () => {
+  // VitePress / Shiki render: the language lives on the wrapper, plus a copy
+  // button and a visible label span that must not leak into the prose.
+  const html = `<html><body><main>
+    <p>Install it:</p>
+    <div class="language-bash vp-adaptive-theme">
+      <button class="copy" title="Copy code"></button>
+      <span class="lang">bash</span>
+      <pre class="shiki"><code>npm install acme</code></pre>
+    </div>
+    <p>Then use it.</p>
+    </main></body></html>`;
+
+  const { markdown } = extractPage(html, 'https://acme.dev/start');
+
+  assert.match(markdown, /```bash\nnpm install acme\n```/);
+  assert.doesNotMatch(markdown, /^bash$/m, 'the language label must not leak as its own line');
+  assert.doesNotMatch(markdown, /Copy code/);
+  assert.doesNotMatch(markdown, /```\nnpm install acme/, 'the fence must carry the language');
+});
+
+test('extractPage widens the fence when the code itself contains ```', () => {
+  // A docs page about Markdown contains triple backticks inside its examples.
+  const html = `<html><body><main>
+    <p>Use a fence like this:</p>
+    <pre><code class="language-markdown">\`\`\`js
+console.log(1)
+\`\`\`</code></pre>
+    <p>That is all.</p>
+    </main></body></html>`;
+
+  const { markdown } = extractPage(html, 'https://acme.dev/markdown');
+
+  assert.match(markdown, /````markdown\n```js\nconsole\.log\(1\)\n```\n````/);
+  const fences = markdown.split('\n').filter((line) => line.startsWith('```'));
+  assert.equal(fences.length % 2, 0, `fences must balance, got ${fences.length}`);
+});
+
 test('splitSections respects heading boundaries and code fences', () => {
   const md = `# Title
 

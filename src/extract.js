@@ -82,34 +82,83 @@ function metaContent(html, name) {
 
 /** Remove the parts of a page that never contain documentation prose. */
 function stripNoise(html) {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(script|style|noscript|template|svg|canvas|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<(script|style|link|meta|base)\b[^>]*\/?>/gi, '');
+  return (
+    html
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(
+        /<(script|style|noscript|template|svg|canvas|iframe|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi,
+        '',
+      )
+      .replace(/<(script|style|link|meta|base)\b[^>]*\/?>/gi, '')
+      // Code-block chrome: copy buttons and the language label. Shiki, VitePress
+      // and Expressive Code render these as siblings of <pre>, which is why the
+      // label would otherwise leak into the text right above every code block.
+      .replace(
+        /<(button|span)\b[^>]*class\s*=\s*["'][^"']*(?:\bcopy\b|\blang\b|\blanguage-label\b)[^"']*["'][^>]*>[\s\S]*?<\/\1>/gi,
+        '',
+      )
+      // Heading permalinks. MkDocs Material and friends append an anchor whose
+      // text is ¶, which would otherwise end up inside every heading.
+      .replace(
+        /<a\b[^>]*class\s*=\s*["'][^"']*(?:headerlink|anchor-link|permalink|hash-link)[^"']*["'][^>]*>[\s\S]*?<\/a>/gi,
+        '',
+      )
+  );
+}
+
+/** Last match of a global regex, i.e. the occurrence closest to the cursor. */
+function matchLast(text, re) {
+  let found = null;
+  let m;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = re.exec(text))) found = m[1];
+  return found;
 }
 
 /**
  * Pick the most content-dense container. Preferring <main>/<article> means we get
  * the prose without the site chrome, even on sites that render a huge sidebar.
  */
+/**
+ * Pick the most content-dense container.
+ *
+ * Ordering alone is not enough: MkDocs Material puts the left nav AND the right
+ * "on this page" TOC *inside* <main>, so preferring <main> yields a page that
+ * starts with 40 sidebar links. Instead, take the smallest container that still
+ * holds most of the page's text — that is the prose wrapper on every generator
+ * checked so far (MkDocs article, Docusaurus article, VitePress main, plain body).
+ */
 function pickContent(html) {
-  const candidates = [
-    /<main\b[^>]*>([\s\S]*?)<\/main>/i,
-    /<article\b[^>]*>([\s\S]*?)<\/article>/i,
-  ];
-  for (const re of candidates) {
-    const m = re.exec(html);
-    if (m && m[1] && stripTags(m[1]).trim().length > 200) return m[1];
-  }
+  const textLen = (fragment) => collapseSpace(stripTags(fragment)).length;
+  const candidates = [];
+
+  const article = /<article\b[^>]*>([\s\S]*?)<\/article>/i.exec(html);
+  if (article) candidates.push(article[1]);
+  const main = /<main\b[^>]*>([\s\S]*?)<\/main>/i.exec(html);
+  if (main) candidates.push(main[1]);
   const body = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(html);
-  let content = body ? body[1] : html;
-  content = content
-    .replace(/<(nav|footer|aside|form)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<header\b[^>]*>[\s\S]*?<\/header>/gi, (block) =>
-      // Keep a page header only if it carries the document title.
-      /<h1\b/i.test(block) ? block : '',
-    );
-  return content;
+  candidates.push(body ? body[1] : html);
+
+  const sized = candidates
+    .map((fragment) => ({ fragment, len: textLen(fragment) }))
+    .filter((c) => c.len > 200)
+    .sort((a, b) => a.len - b.len);
+
+  let content;
+  if (sized.length) {
+    const largest = sized[sized.length - 1].len;
+    content = (sized.find((c) => c.len >= largest * 0.6) || sized[sized.length - 1]).fragment;
+  } else {
+    // Tiny page: nothing is large enough to score, so fall back to the body.
+    content = candidates[candidates.length - 1];
+  }
+
+  // Never keep site chrome. <aside> is left alone on purpose: Starlight and
+  // several other generators use it for in-content callouts.
+  return content
+    .replace(/<nav\b[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer\b[^>]*>[\s\S]*?<\/footer>/gi, '')
+    .replace(/<form\b[^>]*>[\s\S]*?<\/form>/gi, '');
 }
 
 function resolveHref(href, pageUrl) {
@@ -180,16 +229,33 @@ export function extractPage(html, pageUrl) {
 
   // Pull code blocks out first so whitespace normalization cannot touch them.
   const codeBlocks = [];
-  content = content.replace(/<pre\b([^>]*)>([\s\S]*?)<\/pre>/gi, (whole, attrs, inner) => {
-    const langMatch =
-      /language-([\w+#.-]+)/i.exec(whole) || /\bdata-language\s*=\s*["']([\w+#.-]+)["']/i.exec(whole);
-    const code = decodeEntities(stripTags(inner))
-      .replace(/\r\n?/g, '\n')
-      .replace(/^\n+|\n+$/g, '');
-    if (!code.trim()) return '';
-    codeBlocks.push({ lang: langMatch ? langMatch[1].toLowerCase() : '', code });
-    return `\n\n\u0000CODE${codeBlocks.length - 1}\u0000\n\n`;
-  });
+  {
+    const re = /<pre\b[^>]*>([\s\S]*?)<\/pre>/gi;
+    let kept = '';
+    let cursor = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      kept += content.slice(cursor, m.index);
+      cursor = m.index + m[0].length;
+
+      // Modern docs put the language on a wrapper div, not on the <pre>, so look
+      // just behind the block for the closest language-* hint.
+      const behind = content.slice(Math.max(0, m.index - 400), m.index);
+      const lang =
+        matchLast(behind, /language-([\w+#.-]+)/gi) ||
+        matchLast(m[0], /language-([\w+#.-]+)/gi) ||
+        matchLast(behind, /data-language\s*=\s*["']([\w+#.-]+)["']/gi);
+
+      const code = decodeEntities(stripTags(m[1]))
+        .replace(/\r\n?/g, '\n')
+        .replace(/^\n+|\n+$/g, '');
+
+      if (!code.trim()) continue;
+      codeBlocks.push({ lang: lang ? lang.toLowerCase() : '', code });
+      kept += `\n\n\u0000CODE${codeBlocks.length - 1}\u0000\n\n`;
+    }
+    content = kept + content.slice(cursor);
+  }
 
   let md = inlineToMarkdown(content, pageUrl);
 
@@ -226,7 +292,15 @@ export function extractPage(html, pageUrl) {
   md = md.replace(/\u0000CODE(\d+)\u0000/g, (whole, i) => {
     const block = codeBlocks[Number(i)];
     if (!block) return '';
-    return '```' + block.lang + '\n' + block.code + '\n```';
+    // Docs about Markdown contain ``` inside their examples. Emit a longer fence
+    // in that case so the block stays balanced when the Markdown is re-read.
+    let fenceLength = 3;
+    for (const line of block.code.split('\n')) {
+      const run = /^\s*(`{3,})/.exec(line);
+      if (run) fenceLength = Math.max(fenceLength, run[1].length + 1);
+    }
+    const fence = '`'.repeat(fenceLength);
+    return `${fence}${block.lang}\n${block.code}\n${fence}`;
   });
 
   return { title: title || pageUrl, description, markdown: md };
